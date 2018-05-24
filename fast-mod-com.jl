@@ -1,23 +1,18 @@
 using Nemo
 #Z,x = PolynomialRing(ZZ,"x")
-Zp = ResidueRing(ZZ, 73)
+Zp = ResidueRing(ZZ, 109)
 Z, x = PolynomialRing(Zp, "x")
 function poly_ceil(f,h)
-	r=zero(Z)
-	for i=0:h-1
-		r+=coeff(f,i)*x^i
-	end
-	return r
+	return truncate(f,h)
 end
 function poly_floor(f,l)
-	r=zero(Z)
-	for i=0:degree(f)-l
-		r+=coeff(f,i+l)*x^i
-	end
-	return r
+	return shift_right(f,l)
 end
 function t_kar_mul(n,a,c)
 	m = degree(a)
+	#println("n is $n m is $m deg(c) is $(degree(c))")
+	#println("c is $c")
+	#println("a is $a")
 	if(degree(c)> m + n)
 		return "error"
 	end
@@ -34,7 +29,8 @@ function t_kar_mul(n,a,c)
 	mu = div(m,2)+1
 	vu = div(n,2)+1
 	h = max(mu,vu)
-	rho = degree(poly_ceil(a,h))
+	rho = h-1
+	#rho = h
 	if mu > n
 		u = t_kar_mul(n,poly_ceil(a,mu),poly_ceil(c,n+rho))
 		v = t_kar_mul(n,poly_floor(a,mu),poly_floor(c,mu))
@@ -46,10 +42,21 @@ function t_kar_mul(n,a,c)
 		return u + v * one(Z)
 	end
 	lambda = degree(poly_ceil(a,h) + poly_floor(a,h))
+	#println("rho $rho h $h")
+	#println("poly $(poly_ceil(c,rho+h))")
+	#nprintln("poly2 $(poly_floor(poly_ceil(c,rho+2*h),h))")
+	#println("r rec")
 	r = t_kar_mul(h-1,poly_ceil(a,h),poly_ceil(c,rho+h)-poly_floor(poly_ceil(c,rho+2*h),h))
+	#println("s rec");
 	s = t_kar_mul(n-h,poly_floor(a,h),poly_floor(c,2*h)-poly_floor(poly_ceil(c,m+n-h+1),h))
+	#println("rec 2")
+	#println("t rec");
 	t = t_kar_mul(h-1,poly_ceil(a,h) + poly_floor(a,h), poly_floor(poly_ceil(c,lambda + 2*h),h))
-	return r + t + x^h*(s+poly_ceil(t,n-h+1))
+	#println("rec 3")
+	println("p4 $(s+poly_ceil(t,n-h+1))")
+	println("p6 $(x^h*(s+poly_ceil(t,n-h+1)))")
+	println("p5 $(t+x^h*(s+poly_ceil(t,n-h+1)))")
+	return r + t+x^h*(s+poly_ceil(t,n-h+1))
 end
 function newton_to_monomial_geom(fs,q)
 	n = length(fs)
@@ -74,8 +81,15 @@ function newton_to_monomial_geom(fs,q)
 		zs[i]=negi*us[i]*inv(qs[i])
 		negi*=-1
 	end
+	#println(reduce(+,0,[x^i*us[i+1]for i in 0:n-1]))
+	#println(reduce(+,0,[x^i*ws[i+1]for i in 0:n-1]))
 	G = t_kar_mul(n,reduce(+,0,[x^i*us[i+1] for i in 0:n-1]),reduce(+,0,[x^i*ws[i+1] for i in 0:n-1]))
-	return [zs[i+1]*coeff(G,i) for i in 0:n-1]
+	println("G is $G")
+	println("n is $n")
+	println("q is $qs")
+	r = [zs[i+1]*coeff(G,i) for i in 0:n-1]
+	println(r)
+	return r
 end
 function newton_interp_geom(vs,q)
 	n = length(vs)
@@ -101,7 +115,8 @@ function newton_interp_geom(vs,q)
 		neg *=-1
 	end
 	G =	f*g 
-	return [coeff(G,i)*inv(qs[i+1]) for i in 0:n-1]
+	ret= [coeff(G,i)*inv(qs[i+1]) for i in 0:n-1]
+	return ret
 end
 
 #takes an array of a partioned polynomial and transforms it into a matrix
@@ -117,14 +132,15 @@ end
 
 function fast_comp_mod(f,g,h)
 	n = degree(f)
+	m=convert(Int64,ceil(n^(1/2)))
 	N=2*n
 	p = convert(Int64,modulus(Z))
 	q=2
 	for qi = 2:p
 		k = 1
-		qk = Z(qi)
+		qk = qi
 		while (qk != 1 && k < N)
-			qk*=qi
+			qk=(qk*qi)%p
 			k+=1
 		end
 		if k >= N
@@ -133,7 +149,6 @@ function fast_comp_mod(f,g,h)
 		end
 	end
 	println(q)
-	m=convert(Int64,ceil(n^(1/2)))
 	G = typeof(g)[]
 	for i=1:m
 		gi = g % x^(m) 
@@ -157,13 +172,12 @@ function fast_comp_mod(f,g,h)
 		end
 	end
 	B = fs_to_mat(G,m,m)
-#	BA = fast_mat_mult(B,A)
 	BA = B*A
 	b=0
 	hm = H[m]*h
 	Λi = one(Z)
 	for i=1:m
-		qi=1
+		qi=lead(one(Z))
 		for j=1:N
 			Λ[i,j]=Λi(qi)
 			qi*=q
@@ -179,8 +193,8 @@ function fast_comp_mod(f,g,h)
 	return rho%f
 end
 
-f = 3+2x^2+x^4+x^10
+f = 3+2x^2+x^4
 g = 1+x+x^3
-h = 1+x^2+x^4
+h = 2+x^2
 @time println(fast_comp_mod(f,g,h))
 @time println(g(h)%f)
