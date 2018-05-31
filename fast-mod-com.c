@@ -11,10 +11,23 @@ void p_ceil(nmod_poly_t res,nmod_poly_t f, slong h){
 void p_floor(nmod_poly_t res, nmod_poly_t f,slong l){
 	nmod_poly_shift_right(res,f,l);
 }
-void t_kar_mul(nmod_poly_t res, slong n, nmod_poly_t a, nmod_poly_t c,slong acc){
+void t_mul(nmod_poly_t res, slong n, nmod_poly_t a, nmod_poly_t c){
 	slong m = nmod_poly_degree(a);
+	if(nmod_poly_degree(c) > m + n){
+		printf("ERROR\n");
+		nmod_poly_zero(res);
+	}
+	nmod_poly_reverse(res,a,m+1);
+	nmod_poly_mul(res,res,c);
+	p_ceil(res,res,n+m+1);
+	p_floor(res,res,m);
+}
+void t_kar_mul(nmod_poly_t res, slong n, nmod_poly_t a, nmod_poly_t c){
+	slong m = nmod_poly_degree(a);
+	//char * x = "x";
 	if(nmod_poly_degree(c) > n + m){
-		printf("ERROR after %li calls\n",acc);
+		printf("ERROR\n");
+		//nmod_poly_print_pretty(a,x);printf("\n");
 		//flint_abort();
 		nmod_poly_zero(res);	
 	}
@@ -34,8 +47,8 @@ void t_kar_mul(nmod_poly_t res, slong n, nmod_poly_t a, nmod_poly_t c,slong acc)
 		return;
 	}
 	slong mu,vu,h,rho;
-	mu = m/2+1;
-	vu = n/2+1;
+	mu = m/2 + 1;
+	vu = n/2 + 1;
 	h = FLINT_MAX(mu,vu);
 	rho = FLINT_MIN(h,a->length) - 1;
 	nmod_poly_t u,v;
@@ -48,10 +61,10 @@ void t_kar_mul(nmod_poly_t res, slong n, nmod_poly_t a, nmod_poly_t c,slong acc)
 	if(mu > n){
 		p_ceil(p1,a,mu);
 		p_ceil(p2,c,n+rho);
-		t_kar_mul(u,n,p1,p2,acc+1);
+		t_kar_mul(u,n,p1,p2);
 		p_floor(p1,a,mu);
 		p_floor(p2,c,mu);
-		t_kar_mul(v,n,p1,p2,acc+1);
+		t_kar_mul(v,n,p1,p2);
 		nmod_poly_add(res,u,v);
 		nmod_poly_clear(p1);
 		nmod_poly_clear(p2);
@@ -62,9 +75,9 @@ void t_kar_mul(nmod_poly_t res, slong n, nmod_poly_t a, nmod_poly_t c,slong acc)
 	}
 	if(vu > m){
 		p_ceil(p1,c,m+vu);
-		t_kar_mul(u,vu-1,a,p1,acc+1);
+		t_kar_mul(u,vu-1,a,p1);
 		p_floor(p1,c,vu);
-		t_kar_mul(v,n-vu,a,p1,acc+1);
+		t_kar_mul(v,n-vu,a,p1);
 		nmod_poly_add(res,u,v);
 		nmod_poly_clear(p1);
 		nmod_poly_clear(p2);
@@ -85,21 +98,21 @@ void t_kar_mul(nmod_poly_t res, slong n, nmod_poly_t a, nmod_poly_t c,slong acc)
 	p_ceil(p3,c,rho+2*h);
 	p_floor(p3,p3,h);
 	nmod_poly_sub(p2,p2,p3);
-	t_kar_mul(r,h-1,p1,p2,acc+1);
+	t_kar_mul(r,h-1,p1,p2);
 
 	p_floor(p1,a,h);
 	p_floor(p2,c,2*h);
 	p_ceil(p3,c,m+n-h+1);
 	p_floor(p3,p3,h);
 	nmod_poly_sub(p2,p2,p3);
-	t_kar_mul(s,n-h,p1,p2,acc+1);
+	t_kar_mul(s,n-h,p1,p2);
 
 	p_ceil(p1,a,h);
 	p_floor(p2,a,h);
 	nmod_poly_add(p1,p1,p2);
 	p_ceil(p2,c,lambda+2*h);
 	p_floor(p2,p2,h);
-	t_kar_mul(t,h-1,p1,p2,acc+1);
+	t_kar_mul(t,h-1,p1,p2);
 	
 	p_ceil(res,t,n-h+1);
 	nmod_poly_add(res,s,res);
@@ -116,7 +129,6 @@ void t_kar_mul(nmod_poly_t res, slong n, nmod_poly_t a, nmod_poly_t c,slong acc)
 	nmod_poly_clear(v);
 	return;
 }
-
 mp_ptr newton_to_monomial_geom(mp_ptr f, mp_ptr qs, slong N,nmod_t mod){
 	mp_ptr q,v,u,w,z;
 	q = _nmod_vec_init(N);
@@ -152,7 +164,7 @@ mp_ptr newton_to_monomial_geom(mp_ptr f, mp_ptr qs, slong N,nmod_t mod){
 	}
 	nmod_poly_t G;
 	nmod_poly_init(G, mod.n);
-	t_kar_mul(G,N,up,wp,0);
+	t_mul(G,N,up,wp);
 	char * x = "x";
 	mp_ptr Gp;
 	Gp = _nmod_vec_init(N);
@@ -234,7 +246,7 @@ _nmod_poly_compose_mod_brent_kung_fast(mp_ptr res, mp_srcptr poly1, slong len1,
     }
     m = n_sqrt(n)+1;
 	//set N
-	N = 2*n-1;
+	N = 2*n-1; 
 	qs = _nmod_vec_init(N);
 	qs[0]=1;
 	for(q = 2; q < mod.n; q++){
@@ -395,11 +407,6 @@ int main(){
 	nmod_poly_init(h,9001);
 	nmod_poly_init(r,9001);
 	nmod_poly_init(p,9001);
-	flint_rand_t state;
-	//flint_randinit(state);
-	//nmod_poly_randtest_monic(g,state,i-1);
-	//nmod_poly_randtest_monic(h,state,i-1);
-	//nmod_poly_randtest_monic(f,state,i);
 	nmod_poly_read(g);
 	nmod_poly_read(h);
 	nmod_poly_read(f);
@@ -408,6 +415,10 @@ int main(){
 	printf("f ");nmod_poly_print_pretty(f,x);flint_printf("\n");
 	long fails=0;
 	int T = 100;
+	nmod_poly_compose_mod_brent_kung_fast(r,g,h,f);
+	nmod_poly_print_pretty(r,x);flint_printf("\n");
+	//nmod_poly_compose_mod_brent_kung(p,g,h,f);
+	//nmod_poly_print_pretty(p,x);flint_printf("\n");
 	for(slong i=0;i<T;i++){
 		printf("n is %li \n",nmod_poly_degree(f));
 		nmod_poly_set_coeff_ui(g,nmod_poly_degree(g)+1,i);
@@ -425,6 +436,9 @@ int main(){
 			nmod_poly_print_pretty(r,x);flint_printf("\n\n");
 			nmod_poly_print_pretty(p,x);flint_printf("\n\n");
 			fails++;
+		}
+		else{
+			printf("passed\n");
 		}
 	}
 	printf("%li/%d passed \n", T-fails,T);
