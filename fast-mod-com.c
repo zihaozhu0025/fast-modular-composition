@@ -293,7 +293,6 @@ _nmod_poly_compose_mod_brent_kung_fast(mp_ptr res, mp_srcptr poly1, slong len1,
     nmod_mat_mul(C, B, A);
 
     /* Evaluate block composition using the Horner scheme */
-    _nmod_vec_set(res, C->rows[m - 1], n);
 	for(j=0;j<N;j++)
 		L->rows[0][j] = 1;
 	_nmod_vec_set(li, hi, n);
@@ -417,8 +416,6 @@ int main(){
 	int T = 100;
 	nmod_poly_compose_mod_brent_kung_fast(r,g,h,f);
 	nmod_poly_print_pretty(r,x);flint_printf("\n");
-	//nmod_poly_compose_mod_brent_kung(p,g,h,f);
-	//nmod_poly_print_pretty(p,x);flint_printf("\n");
 	for(slong i=0;i<T;i++){
 		printf("n is %li \n",nmod_poly_degree(f));
 		nmod_poly_set_coeff_ui(g,nmod_poly_degree(g)+1,i);
