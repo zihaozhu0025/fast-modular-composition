@@ -55,7 +55,7 @@ void _nmod_poly_precompute_matrix_interp(nmod_mat_t A, nmod_mat_t L, const mp_sr
 void
 _nmod_poly_compose_mod_brent_kung_fast_precomp_preinv(mp_ptr res, mp_srcptr poly1, slong len1,
                             const nmod_mat_t A, const nmod_mat_t L,
-                            mp_srcptr poly3, slong len3, mp_srcptr poly3inv, const mp_ptr qs, nmod_t mod)
+                            const mp_srcptr poly3, slong len3, const mp_srcptr poly3inv, const mp_ptr qs, nmod_t mod)
 {
     nmod_mat_t B, C;
     mp_ptr t, h,hi,li;
@@ -99,17 +99,12 @@ _nmod_poly_compose_mod_brent_kung_fast_precomp_preinv(mp_ptr res, mp_srcptr poly
 			r[j] = nmod_add(r[j],nmod_mul(C->rows[i][j] , L->rows[i][j], mod),mod);
 		}
 	}
-	//mp_ptr tmp;	
 	mp_ptr ng = newton_interp_geom(r,qs,N,mod);
 	mp_ptr nm = newton_to_monomial_geom(ng,qs,N,mod);
 	_nmod_vec_set(r,nm,N);
-	//mp_ptr blank;
-	//blank = _nmod_vec_init(N);
-	//_nmod_poly_divrem(blank, res,r,N,poly3,len3,mod);
 	_nmod_poly_rem(res, r, N, poly3, len3, mod);
 	_nmod_vec_clear(ng);
 	_nmod_vec_clear(nm);
-	//_nmod_vec_clear(blank);
 	_nmod_vec_clear(r);
     _nmod_vec_clear(h);
     _nmod_vec_clear(t);
