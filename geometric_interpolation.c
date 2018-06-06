@@ -5,14 +5,14 @@
 #include"flint/nmod_mat.h"
 #include"flint/ulong_extras.h"
 
-void p_ceil(nmod_poly_t res,nmod_poly_t f, slong h){
+void p_ceil(nmod_poly_t res, const nmod_poly_t f, slong h){
 	nmod_poly_set(res,f);
 	nmod_poly_truncate(res,h);
 }
-void p_floor(nmod_poly_t res, nmod_poly_t f,slong l){
+void p_floor(nmod_poly_t res, const nmod_poly_t f,slong l){
 	nmod_poly_shift_right(res,f,l);
 }
-void t_mul(nmod_poly_t res, slong n, nmod_poly_t a, nmod_poly_t c){
+void t_mul(nmod_poly_t res, slong n, const nmod_poly_t a, const nmod_poly_t c){
 	slong m = nmod_poly_degree(a);
 	if(nmod_poly_degree(c) > m + n){
 		printf("ERROR\n");
@@ -22,6 +22,14 @@ void t_mul(nmod_poly_t res, slong n, nmod_poly_t a, nmod_poly_t c){
 	nmod_poly_mul(res,res,c);
 	p_ceil(res,res,n+m+1);
 	p_floor(res,res,m);
+}
+void _t_mul(mp_ptr res, slong n, mp_srcptr a, slong len1, mp_srcptr c, slong len2, nmod_t mod){
+	slong m = len1 + 1;
+	if(len2 > m + n){
+		printf("ERROR\n");
+	}
+	_nmod_poly_reverse(res, a,len1,len1);
+	_nmod_poly_mul(res,res, len1, c,len2, mod);
 }
 void t_kar_mul(nmod_poly_t res, slong n, nmod_poly_t a, nmod_poly_t c){
 	slong m = nmod_poly_degree(a);
@@ -130,7 +138,7 @@ void t_kar_mul(nmod_poly_t res, slong n, nmod_poly_t a, nmod_poly_t c){
 	nmod_poly_clear(v);
 	return;
 }
-mp_ptr newton_to_monomial_geom(mp_ptr f, mp_ptr qs, slong N,nmod_t mod){
+mp_ptr newton_to_monomial_geom(const mp_ptr f, const mp_ptr qs, slong N,nmod_t mod){
 	mp_ptr q,v,u,w,z;
 	q = _nmod_vec_init(N);
 	v = _nmod_vec_init(N);
@@ -142,7 +150,8 @@ mp_ptr newton_to_monomial_geom(mp_ptr f, mp_ptr qs, slong N,nmod_t mod){
 	u[0]=1;
 	w[0]=f[0];
 	z[0]=1;
-	slong i,lenu,lenw;
+	slong i,inv;
+	inv = mod.n-1;
 	nmod_poly_t up,wp;
 	nmod_poly_init(up,mod.n);
 	nmod_poly_init(wp,mod.n);
@@ -151,22 +160,16 @@ mp_ptr newton_to_monomial_geom(mp_ptr f, mp_ptr qs, slong N,nmod_t mod){
 	for (i=1;i<N;i++){
 		q[i] = nmod_mul(q[i-1],qs[i-1],mod);
 		v[i] = nmod_mul((i%2==0?1:mod.n-1),nmod_mul(f[i],q[i],mod),mod);
-		u[i] = nmod_mul(u[i-1],nmod_div(qs[i],((1-qs[i])+(mod.n))%(mod.n),mod),mod);
+		u[i] = nmod_mul(u[i-1],nmod_div(qs[i],((1-qs[i])+(mod.n)),mod),mod);
 		w[i] = nmod_div(v[i],u[i],mod);
 		z[i] = nmod_mul((i%2==0?1:mod.n-1),nmod_div(u[i],q[i],mod),mod);
-		if(u[i]!=0){
-			lenu=i+1;
-		}
-		if(w[i]!=0){
-			lenw=i+1;
-		}
+		
 		nmod_poly_set_coeff_ui(up,i,u[i]);
 		nmod_poly_set_coeff_ui(wp,i,w[i]);
 	}
 	nmod_poly_t G;
 	nmod_poly_init(G, mod.n);
 	t_mul(G,N,up,wp);
-	char * x = "x";
 	mp_ptr Gp;
 	Gp = _nmod_vec_init(N);
 	_nmod_vec_zero(Gp,N);
@@ -184,7 +187,7 @@ mp_ptr newton_to_monomial_geom(mp_ptr f, mp_ptr qs, slong N,nmod_t mod){
 	nmod_poly_clear(wp);
 	return Gp;
 }
-mp_ptr newton_interp_geom(mp_ptr v, mp_ptr qs, slong N,nmod_t mod){
+mp_ptr newton_interp_geom(const mp_ptr v, const mp_ptr qs, slong N,nmod_t mod){
 	mp_ptr u,w,q,r;
 	u=_nmod_vec_init(N);
 	w=_nmod_vec_init(N);
@@ -204,9 +207,18 @@ mp_ptr newton_interp_geom(mp_ptr v, mp_ptr qs, slong N,nmod_t mod){
 	nmod_poly_init(f,mod.n);
 	nmod_poly_init(g,mod.n);
 	nmod_poly_init(G,mod.n);
-	for (i=0;i<N;i++){
+	//for (i=0;i<N;i++){
+	//	nmod_poly_set_coeff_ui(f,i,w[i]);
+	//	nmod_poly_set_coeff_ui(g,i,nmod_mul((i%2==0?1:mod.n-1),nmod_div(q[i],u[i],mod),mod));
+	//}
+	for(i=0;i<N;i+=2){
 		nmod_poly_set_coeff_ui(f,i,w[i]);
-		nmod_poly_set_coeff_ui(g,i,nmod_mul((i%2==0?1:mod.n-1),nmod_div(q[i],u[i],mod),mod));
+		nmod_poly_set_coeff_ui(g,i,nmod_div(q[i],u[i],mod));
+	}
+	slong inv=mod.n-1;
+	for(i=1;i<N;i+=2){
+		nmod_poly_set_coeff_ui(f,i,w[i]);
+		nmod_poly_set_coeff_ui(g,i,nmod_mul(inv,nmod_div(q[i],u[i],mod),mod));
 	}
 	nmod_poly_mul(G,f,g);
 	for(i=0;i<N;i++){

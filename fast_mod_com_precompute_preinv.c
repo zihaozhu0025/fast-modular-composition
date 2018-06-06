@@ -35,25 +35,26 @@ void _nmod_poly_precompute_matrix_interp(nmod_mat_t A, nmod_mat_t L, const mp_sr
 	m = n_sqrt(n) + 1;
 	for(i=0;i<N;i++){
 		A->rows[0][i]=1;
-		L->rows[0][i]=1;
+		//L->rows[0][i]=1;
 	}
+	L->rows[0]=A->rows[0];
 	mp_ptr hi,hm;
 	hi = _nmod_vec_init(n);
 	hm = _nmod_vec_init(n);
 	_nmod_vec_set(hi,poly1,len1);
 	for(i=1;i<m;i++){
-		_nmod_poly_evaluate_nmod_vec_iter(A->rows[i], hi, n, qs, N, mod);
+		_nmod_poly_evaluate_nmod_vec_fast(A->rows[i], hi, n, qs, N, mod);
 		_nmod_poly_mulmod_preinv(hi,hi,n,poly1,len1,poly2,len2,poly2inv,len2inv,mod);
 	}
 	_nmod_vec_set(hm,hi,n);
 	for(i=1;i<m;i++){
-		_nmod_poly_evaluate_nmod_vec_iter(L->rows[i], hi, n, qs, N, mod);
+		_nmod_poly_evaluate_nmod_vec_fast(L->rows[i], hi, n, qs, N, mod);
 		_nmod_poly_mulmod_preinv(hi,hi,n,hm,n,poly2,len2,poly2inv, len2inv, mod);
 	}
 
 }
 void
-_nmod_poly_compose_mod_brent_kung_fast_precomp_preinv(mp_ptr res, mp_srcptr poly1, slong len1,
+_nmod_poly_compose_mod_brent_kung_fast_precomp_preinv(mp_ptr res, const mp_srcptr poly1, slong len1,
                             const nmod_mat_t A, const nmod_mat_t L,
                             const mp_srcptr poly3, slong len3, const mp_srcptr poly3inv, const mp_ptr qs, nmod_t mod)
 {
@@ -101,8 +102,8 @@ _nmod_poly_compose_mod_brent_kung_fast_precomp_preinv(mp_ptr res, mp_srcptr poly
 	}
 	mp_ptr ng = newton_interp_geom(r,qs,N,mod);
 	mp_ptr nm = newton_to_monomial_geom(ng,qs,N,mod);
-	_nmod_vec_set(r,nm,N);
-	_nmod_poly_rem(res, r, N, poly3, len3, mod);
+	//_nmod_vec_set(r,nm,N);
+	_nmod_poly_rem(res, nm, N, poly3, len3, mod);
 	_nmod_vec_clear(ng);
 	_nmod_vec_clear(nm);
 	_nmod_vec_clear(r);
